@@ -13,7 +13,7 @@ This public repository keeps the project logic and branch-specific experiment co
 
 ### Main cleaned code tree
 - `emg2qwerty/`: cleaned baseline-based code tree with our added models and scripts
-- `report/`: report source files currently available locally
+- `report/`: final report PDF plus source files currently available locally
 - `artifacts/`: summarized result records and checkpoint metadata
 
 ### Branch-specific code bundles
@@ -33,6 +33,9 @@ These folders mirror the branch-oriented submission structure used by the team:
 ## Branch B checkpoint record
 The best recorded Branch B checkpoint path and metrics are stored in:
 - `artifacts/checkpoint_record.txt`
+
+## Final report
+- `report/EC_ENGR_247_Final_Project_final.pdf`
 
 ## Intentionally excluded
 To keep the repository lightweight and public-friendly, this release excludes:
