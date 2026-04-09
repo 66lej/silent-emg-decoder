@@ -1,0 +1,5 @@
+branch,best_model,val_CER,test_CER,source
+Shared,TDSConv baseline,18.48,21.85,team summary
+A,CNN+GRU hybrid,10.04,9.44,teammate public repo summary
+B,Dilated Residual TCN,17.76694679260254,19.472660064697266,local reproduced best run
+C,Dual-stream late fusion,12.36,11.59,teammate public repo summary
