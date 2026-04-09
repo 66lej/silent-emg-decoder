@@ -1,0 +1,298 @@
+\documentclass{article}
+
+\usepackage[final]{neurips_2024}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsmath, amssymb, amsfonts}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{multirow}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{array}
+\usepackage{microtype}
+
+\newcommand{\cer}{\mathrm{CER}}
+\newcommand{\best}[1]{\textbf{#1}}
+\newcommand{\todo}[1]{\textcolor{blue}{[#1]}}
+\newcommand{\model}[1]{\textsc{#1}}
+
+\title{Improving Single-User EMG-to-Text Decoding via Architecture and Training Design}
+
+\author{
+  Jingze Fu \\
+  UID \\ Email \\
+  \And
+  Mu Li \\
+  306780665 \\ lim29@ucla.edu \\
+  \And
+  Maoqi Xu \\
+  UID \\ Email \\
+  \And
+  Kaiwen Zhao \\
+  UID \\ Email
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+We study the \texttt{emg2qwerty} single-user decoding task and investigate which design choices most strongly affect character error rate (\cer). 
+Our group explores multiple complementary directions, including architecture changes, optimization and augmentation choices, and additional ablations on data or decoding settings.
+Our current results suggest that recurrent encoders substantially outperform the provided TDSConv baseline in our setting, while more complex hybrid designs do not automatically yield further gains.
+We also find that stronger regularization is not always beneficial, highlighting the need to balance model capacity, augmentation strength, and optimization stability.
+This report presents our shared setup, individual experiment branches, and the insights obtained from combining them.
+
+\end{abstract}
+
+\section{Introduction}
+
+Silent EMG typing is a sequence decoding problem in which multichannel EMG signals are mapped to character sequences.
+For this project, rather than restating the general background of sEMG decoding, we focus on the more specific question of which modeling and training choices are most important for reducing \cer\ in the provided single-user benchmark.
+
+Our group approaches this question from several complementary angles.
+The first branch studies encoder architecture and training design, asking whether recurrent encoders provide a better inductive bias than the provided TDSConv baseline, and whether CNN+RNN hybrids or optimizer/augmentation changes further improve performance.
+Additional branches investigate other factors such as \todo{data ablations / preprocessing / decoding / channel count / sampling rate / other teammate topics}.
+This organization lets us compare multiple hypotheses within one coherent report instead of presenting disconnected experiments.
+
+The main contributions of this report are:
+\begin{itemize}[leftmargin=1.2em]
+    \item A unified comparison framework for multiple experiment branches on the same single-user EMG-to-text task.
+    \item An architecture-focused study showing large gains from replacing the baseline temporal encoder with a GRU-based alternative.
+    \item A synthesis of positive and negative results, including cases where stronger regularization or more complex models fail to improve performance.
+\end{itemize}
+
+\paragraph{Paper roadmap.}
+Section~\ref{sec:methods} describes the shared pipeline and the four experiment branches.
+Section~\ref{sec:results} reports quantitative results and qualitative observations.
+Section~\ref{sec:discussion} summarizes the key insights and limitations.
+
+\section{Methods}
+\label{sec:methods}
+
+
+\subsection{Task and evaluation}
+We follow the provided single-user \texttt{emg2qwerty} setting and report character error rate (\cer) as the primary metric.
+Unless otherwise stated, all team members use the provided train/validation/test split and compare against the same baseline setup so that results across branches remain directly comparable.
+
+
+
+\subsection{Shared preprocessing and training pipeline}
+All experiment branches build on the same overall pipeline: raw EMG signals are converted into input features, passed through an encoder-decoder architecture trained with CTC-style supervision, and evaluated with beam-search decoding.
+
+Our current shared pipeline includes the following components:
+\begin{itemize}[leftmargin=1.2em]
+    \item tensor conversion for left/right EMG inputs,
+    \item log-spectrogram feature extraction,
+    \item optional band rotation augmentation,
+    \item optional temporal alignment jitter,
+    \item optional SpecAugment,
+    \item CTC beam decoding with an external character LM.
+\end{itemize}
+
+
+
+\subsection{Baseline}
+We use the provided TDSConv-based CTC model as the main reference point.
+This baseline establishes the starting \cer\ before introducing any architecture or optimization changes.
+
+
+
+\subsection{Branch A: architecture and optimization study (your section)}
+\label{sec:branchA}
+This branch examines whether recurrent temporal modeling is more suitable than the provided convolutional temporal encoder for the single-user EMG typing task.
+
+\paragraph{A.1 GRU encoder replacement.}
+In our first modification, we keep the front-end feature processing pipeline unchanged and replace the original temporal encoder with a GRU-based encoder.
+This tests whether explicit recurrent sequence modeling improves alignment and character decoding.
+
+\paragraph{A.2 CNN+GRU hybrid encoder.}
+We also evaluate a hybrid architecture that combines convolutional temporal processing with a recurrent stage.
+This variant is designed to test whether local feature extraction and recurrent sequence modeling are complementary in this setting.
+
+\paragraph{A.3 Optimization and regularization changes.}
+Beyond architecture alone, we study the effect of optimizer choice and augmentation strength.
+In particular, we compare Adam vs.\ AdamW and also compare lighter vs.\ stronger masking/regularization settings.
+These experiments help determine whether performance gains come from architecture choice, training dynamics, or both.
+
+\paragraph{A.4 Negative trials.}
+We explicitly retain selected unsuccessful experiments, such as overly strong regularization or larger-capacity settings that degrade performance.
+Including these failures is important because they clarify which intuitions do \emph{not} hold in this task.
+
+\subsection{Branch B: Long-Range Temporal Modeling with Dilated Convolutions}
+
+\label{sec:branchB}
+
+This branch examines whether a purely convolutional temporal encoder with a larger effective receptive field is better suited than the provided baseline for the single-user EMG typing task.
+
+\paragraph{B.1 Dilated residual temporal encoder.}
+In our main modification, we keep the front-end feature processing pipeline unchanged and replace the baseline temporal encoder with a dilated residual temporal convolutional network. This tests whether exponentially increasing dilation can capture long-range dependencies while preserving stable full-session inference at test time.
+
+\paragraph{B.2 Optimization and augmentation changes.}
+Beyond architecture alone, we also study whether a stronger optimization setup helps this temporal-convolution branch. In particular, our best model combines AdamW with light regularization and lighter SpecAugment settings. These choices are intended to improve optimization stability without overly corrupting the already limited single-user training data.
+
+\paragraph{B.3 Negative trials.}
+We explicitly retain selected unsuccessful experiments, most notably a lightweight Transformer temporal encoder that achieved moderate validation performance but failed under the full-session test protocol. Including this failure is important because it clarifies that long-range modeling alone is not sufficient; the architecture must also remain computationally compatible with the actual evaluation setup.
+
+Our final Branch B model is a \model{Dilated Residual TCN} trained with the same log-spectrogram front end used in the shared pipeline. We retain the multi-band rotation-invariant MLP feature extractor and replace the baseline temporal encoder with a stack of eight residual temporal blocks using exponentially increasing dilation factors. Each block applies a dilated 1D convolution, GELU activation, dropout, and a residual connection with layer normalization. In our best configuration, the front end uses \texttt{mlp\_features=[384]}, the temporal encoder uses \texttt{num\_blocks=8} with kernel width 5 and dropout 0.25, and optimization uses AdamW with learning rate $10^{-3}$ and weight decay $10^{-5}$. We also use a lighter SpecAugment configuration with one time mask and one frequency mask.
+
+\subsection{Branch C: \todo{teammate 3 title}}
+\label{sec:branchC}
+\todo{Member C writes this subsection.}
+
+\subsection{Branch D: \todo{teammate 4 title}}
+\label{sec:branchD}
+\todo{Member D writes this subsection.}
+
+\subsection{Experimental protocol}
+To make cross-branch comparisons fair, we standardize the reporting format across all experiments:
+\begin{itemize}[leftmargin=1.2em]
+    \item each branch states the exact change relative to baseline,
+    \item each experiment reports validation and test \cer\ when available,
+    \item each branch highlights both its best result and at least one informative negative result,
+    \item all final comparisons are collected into a single summary table.
+\end{itemize}
+
+\section{Results}
+\label{sec:results}
+
+
+\subsection{Main quantitative comparison}
+Table~\ref{tab:main-results} is intended to become the central table of the paper.
+It should include the baseline, the best result from each team member's branch, and one or two especially informative failure cases.
+
+\begin{table}[t]
+    \centering
+    \caption{Main quantitative comparison across experiment branches. Replace placeholder values with final numbers.}
+    \label{tab:main-results}
+    \small
+    \begin{tabular}{llllcc}
+        \toprule
+        Branch & Model / setting & Main change & Notes & Val CER $\downarrow$ & Test CER $\downarrow$ \\
+        \midrule
+        Shared & TDSConv baseline & provided baseline & reference point & \todo{18.48?} & \todo{21.85?} \\
+        A & GRU encoder & replace TDSConv with GRU & recurrent temporal modeling & \todo{11.48} & \todo{11.11} \\
+        A & tuned GRU + AdamW & optimizer + lighter masking & current best in Branch A & \todo{10.04} & \todo{9.44} \\
+        A & CNN+GRU hybrid & hybrid temporal encoder & competitive but not best & \todo{11.54} & \todo{10.14} \\
+        A & heavy regularization & larger model + stronger masks & informative failure case & \todo{20.43} & \todo{25.29} \\
+        B & Dilated Residual TCN & long-range temporal convolutions & current best in Branch B & 17.77 & 19.47 \\
+        C & \todo{best model} & \todo{key change} & \todo{short note} & \todo{--} & \todo{--} \\
+        D & \todo{best model} & \todo{key change} & \todo{short note} & \todo{--} & \todo{--} \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{Branch A results: architecture and optimization}
+Replacing the baseline temporal encoder with a GRU substantially improves performance, indicating that recurrent sequence modeling is highly effective in this single-user setting.
+Further tuning with AdamW and milder regularization improves performance again, while a more complex CNN+GRU hybrid remains competitive but does not clearly surpass the best pure-GRU configuration.
+Interestingly, scaling model capacity and masking strength too aggressively leads to a strong performance drop, showing that this task is sensitive to over-regularization.
+
+
+
+\begin{table}[t]
+    \centering
+    \caption{Detailed results for Branch A (architecture and optimization).}
+    \label{tab:branchA}
+    \small
+    \begin{tabular}{lcccccc}
+        \toprule
+        Model & Hidden size & Layers & Dropout & Optimizer & Val CER $\downarrow$ & Test CER $\downarrow$ \\
+        \midrule
+        TDSConv baseline & \todo{--} & \todo{--} & \todo{--} & Adam & \todo{--} & \todo{--} \\
+        GRU & 256 & 2 & 0.20 & Adam & \todo{11.48} & \todo{11.11} \\
+        GRU & 288 & 2 & 0.25 & AdamW & \todo{10.04} & \todo{9.44} \\
+        CNN+GRU & \todo{...} & \todo{...} & \todo{...} & \todo{...} & \todo{11.54} & \todo{10.14} \\
+        large + strong mask & 512 & 3 & 0.50 & \todo{...} & \todo{20.43} & \todo{25.29} \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{Branch B results: Long-Range Temporal Modeling with Dilated Convolutions}
+Replacing the baseline temporal encoder with a dilated residual TCN improves performance, indicating that broader temporal context is useful even without switching to recurrent modeling. Compared with our reproduced TDSConv baseline, the dilated residual design yields a clear improvement and suggests that the baseline temporal stack does not fully exploit the amount of usable long-range context available in the single-user setting.
+
+An important observation is that architecture practicality matters alongside raw modeling capacity. Our lightweight Transformer temporal encoder appeared promising during validation, but it did not produce a valid final test result because full-session evaluation exposed sequence-length limitations in the model design. In contrast, the dilated TCN preserves long-range temporal modeling while remaining computationally stable under the actual test protocol.
+
+More broadly, this branch suggests that long-context temporal modeling can help substantially, but only when the chosen architecture respects the compute and inference constraints of the benchmark. In our experiments, dilated convolutions provide a better tradeoff between temporal coverage and deployment feasibility than the more expensive full-attention alternative.
+
+\begin{table}[t]
+    \centering
+    \caption{Detailed results for Branch B (long-range temporal modeling).}
+    \label{tab:branchB}
+    \small
+    \begin{tabular}{lcccc}
+        \toprule
+        Model & Temporal design & Optimizer & Val CER $\downarrow$ & Test CER $\downarrow$ \\
+        \midrule
+        TDSConv baseline & provided TDSConv encoder & Adam & 22.60 & 24.29 \\
+        Lightweight Transformer & full-attention temporal encoder & AdamW & 28.95 & N/A \\
+        Dilated Residual TCN & dilated residual temporal convolutions & AdamW & 17.77 & 19.47 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{Branch C results: \todo{title}}
+\todo{Member C adds 1--2 paragraphs plus one small figure/table if needed.}
+
+\subsection{Branch D results: \todo{title}}
+\todo{Member D adds 1--2 paragraphs plus one small figure/table if needed.}
+
+\subsection{Qualitative analysis and error cases}
+This subsection is reserved for examples that make the quantitative trends easier to interpret.
+Possible content includes decoded predictions vs.\ ground truth, examples where recurrent models fix deletion-heavy errors, or examples where stronger masking hurts output stability.
+
+\begin{figure}[t]
+    \centering
+    \fbox{\rule{0pt}{1.4in}\rule{0.9\linewidth}{0pt}}
+    \caption{Placeholder for a qualitative figure. Good options include prediction examples, CER breakdowns, or a compact ablation plot.}
+    \label{fig:qualitative}
+\end{figure}
+
+
+
+\section{Discussion}
+\label{sec:discussion}
+
+Our experiments suggest that the most important gains do not necessarily come from making the model more complex.
+Instead, the clearest improvement in our current study comes from choosing an architecture whose inductive bias better matches the temporal decoding problem.
+For our branch, recurrent modeling appears substantially more effective than the provided TDSConv baseline, while additional complexity in a hybrid CNN+GRU design does not automatically improve the final \cer.
+
+A second theme is that optimization and regularization need to be tuned jointly.
+Moderate regularization and AdamW improve performance in our current best recurrent model, but simply increasing model size or masking strength degrades results.
+This indicates that the task may be relatively data-limited or sensitive to training instability, making balance more important than raw capacity.
+
+Across the group, a key goal of the final paper is to combine results from all four branches into a single picture of what matters most for this benchmark.
+Rather than reporting isolated experiments, we aim to answer a broader question: which changes are consistently useful, which only help conditionally, and which plausible ideas fail in practice?
+
+\paragraph{Limitations.}
+This report currently focuses on the provided single-user setting and limited compute resources.
+Some conclusions may change under broader hyperparameter sweeps, multi-user settings, or more extensive decoding changes.
+In addition, not all team branches are complete at the time of this draft skeleton.
+
+\paragraph{Final takeaway.}
+
+At the current stage, our strongest evidence is that recurrent temporal encoders provide a strong baseline for the single-user EMG typing task, but final project conclusions should be based on the combined evidence from all team members' experiment branches.
+
+\section*{Broader planning notes for the team}
+
+\begin{itemize}[leftmargin=1.2em]
+    \item Keep the report centered on one \emph{main question}: what choices most reduce CER in the provided single-user benchmark?
+    \item Treat each team member's work as one branch under that main question, not as four unrelated mini-reports.
+    \item Each branch should contribute:
+    \begin{itemize}[leftmargin=1.2em]
+        \item one motivating hypothesis,
+        \item one best result,
+        \item one failure or negative result,
+        \item one short takeaway.
+    \end{itemize}
+    \item The final Discussion should synthesize across branches instead of repeating Results.
+\end{itemize}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

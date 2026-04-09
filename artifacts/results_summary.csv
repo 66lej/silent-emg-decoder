@@ -1,0 +1,6 @@
+model_name,val_CER,test_CER,notes
+tds_baseline_40ep,22.59636688232422,24.292198181152344,reproduced baseline with ctc_greedy
+tds_variant_40ep,35.46743392944336,32.74259948730469,lighter TDS variant
+tds_lr1e4_60ep,80.48294067382812,82.92630004882812,lower learning rate and longer training did not help
+gru_40ep,30.571556091308594,54.52777099609375,recurrent branch reproduction
+dilated_residual_tcn_60ep,17.76694679260254,19.472660064697266,branch B best result

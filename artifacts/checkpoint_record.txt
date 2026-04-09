@@ -1,0 +1,13 @@
+Best publicized TCN run
+=======================
+Model: Dilated Residual TCN CTC
+Checkpoint path on training VM:
+/mnt/data/emg2qwerty/logs/model6_dilated_tcn_20260310_050049/checkpoints/epoch=56-step=6840.ckpt
+
+Metrics:
+- val/CER = 17.76694679260254
+- test/CER = 19.472660064697266
+
+Notes:
+- Decoder used for this recorded result: ctc_greedy
+- This repository intentionally excludes datasets, training logs, temporary update tarballs, VM-specific files, and large model binaries that are not required to understand or reproduce the code structure.

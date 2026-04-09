@@ -1,0 +1,23 @@
+% Branch B title replacement in Methods section
+\subsection{Branch B: Long-Range Temporal Modeling with Dilated Convolutions}
+\label{sec:branchB}
+This branch studies whether a purely convolutional temporal encoder with a much larger receptive field can outperform the provided TDSConv baseline while remaining stable under the full-session test protocol. Our main hypothesis is that dilated residual temporal convolutions provide a better tradeoff between long-range context modeling and computational efficiency than either recurrent encoders or full-attention sequence models in this benchmark.
+
+Our final Branch B model is a \model{Dilated Residual TCN} trained with the same log-spectrogram front end used in the shared pipeline. We retain the multi-band rotation-invariant MLP feature extractor and replace the baseline temporal encoder with a stack of eight residual temporal blocks using exponentially increasing dilation factors. Each block applies a dilated 1D convolution, GELU activation, dropout, and a residual connection with layer normalization. This design increases the temporal receptive field without introducing the quadratic sequence-length cost of self-attention. In our best configuration, the front end uses \texttt{mlp\_features=[384]}, the temporal encoder uses \texttt{num\_blocks=8} with kernel width 5 and dropout 0.25, and optimization uses AdamW with learning rate $10^{-3}$ and weight decay $10^{-5}$. We also use a lighter SpecAugment configuration with one time mask and one frequency mask.
+
+We additionally tested a lightweight Transformer temporal encoder as a creative alternative for long-range modeling. Although that model achieved a validation CER of 28.95, it failed under the course full-session test setup because standard full-attention over extremely long sessions was not practical in our implementation. This negative result motivated the shift toward a linear-time temporal architecture.
+
+% Branch B row replacement in Table 1
+% Replace the Branch B placeholder row with the following:
+% B & Dilated Residual TCN & long-range temporal convolutions & current best in Branch B & 17.77 & 19.47 \\
+
+% Branch B results subsection replacement in Results section
+\subsection{Branch B results: Long-Range Temporal Modeling with Dilated Convolutions}
+The best Branch B result comes from the \model{Dilated Residual TCN}, which achieves a validation CER of 17.77 and a test CER of 19.47. Compared with our own reproduced TDSConv baseline (test CER 24.29), this represents a clear improvement and shows that wider temporal receptive fields can materially improve single-user EMG decoding. Unlike the Transformer attempt, the dilated TCN remains compatible with the course evaluation protocol because both training and full-session test inference scale linearly with sequence length.
+
+The main qualitative lesson from this branch is that long-range temporal context is useful, but the mechanism used to capture it matters. Our Transformer branch suggested that simply introducing a modern sequence model is not sufficient when the test protocol contains extremely long sessions. In contrast, the dilated TCN preserves long-context modeling while avoiding the memory and inference instability associated with full self-attention. This makes it a better practical design choice under the project's compute and evaluation constraints.
+
+A useful negative result in this branch is the lightweight Transformer temporal encoder. Despite reaching a validation CER of 28.95, it did not produce a valid final test CER because evaluation on full sessions exposed sequence-length limitations in the model design. This failure is still informative: for this benchmark, architectures intended for deployment should be judged not only by validation accuracy but also by whether they remain tractable under the actual full-session test protocol.
+
+% Optional short paragraph for Discussion section
+% Branch B shows that long-context modeling helps, but only when the architecture respects the full-session evaluation constraint. Dilated temporal convolutions improved CER while remaining stable at test time, whereas the lightweight Transformer branch exposed a mismatch between full-attention sequence modeling and the benchmark's very long input sessions.
